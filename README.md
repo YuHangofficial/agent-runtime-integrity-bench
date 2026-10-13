@@ -168,6 +168,29 @@ python3.12 -m venv .venv
 .venv/bin/python run_bench.py
 ```
 
+On **Windows (PowerShell)**, with Python 3.12 installed:
+
+```powershell
+git clone https://github.com/tonydzi/agent-runtime-integrity-bench
+cd agent-runtime-integrity-bench
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-full.txt
+.\.venv\Scripts\python.exe selftest.py
+.\.venv\Scripts\python.exe run_bench.py --json windows-report.json
+$LASTEXITCODE
+```
+
+Calling the environment's Python directly avoids changing PowerShell's execution
+policy to activate it. `selftest.py` must exit **0**; the benchmark exits **1** when
+it finds and reports invariant violations, which is an expected measurement, not
+an installation failure. Exit **4** means the harness failed.
+
+For **WSL2**, use the Linux commands above inside Ubuntu and create a separate
+virtual environment there; a Windows virtual environment cannot be reused by WSL.
+On Ubuntu 24.04, `python3` is Python 3.12 and can replace `python3.12` above.
+The CI workflow is configured to run the stdlib self-test on Ubuntu and Windows
+with Python 3.10/3.12/3.13, and the full benchmark on both platforms with Python 3.12.
+
 Three minutes, no API key, no network, no model call — the scenarios in `bench/` exercise session storage, not an LLM.
 
 `requirements-full.txt` adds SQLAlchemy and is what CI installs and what the published results were measured with.
@@ -222,8 +245,8 @@ the mechanism (check-outside-lock, missing `_closed` flag), the self-test
 mutant fails and the real runs are reproducible (3 consecutive identical
 verdict sets). Since 2026-08-02 the checks also run on CI: the self-test on
 Python 3.10/3.12/3.13 and the full benchmark on Ubuntu, which reproduced all
-16 macOS verdicts exactly. Still not verified: Windows, free-threaded builds,
-and alternative event loops (uvloop) — the 20/20 close-race determinism relies
+16 macOS verdicts exactly. Those runs did not verify Windows, free-threaded builds,
+or alternative event loops (uvloop) — the 20/20 close-race determinism relies
 on the await-inside-the-lock suspension point and has been measured on stock
 asyncio only, on two platforms. Known selftest gap: mutants cover wrong
 verdicts, not hangs (a store deadlocking on SQLite busy_timeout would stall
@@ -274,7 +297,7 @@ findings get fixed upstream and said so in the same file format it used to repor
   ever been pointed at one library has not yet been shown to measure the library rather than us.
 - **Human eyes on the two newest adapters.** `AdvancedSQLiteSession` and `SQLAlchemySession` are
   reproducible-and-machine-reviewed; the README says so per claim, and that is a gap, not a style.
-- **Platforms we do not cover:** Windows, free-threaded builds, uvloop.
+- **Platforms we do not cover:** free-threaded builds, uvloop.
   `RedisSession` / `MongoDBSession` / `DaprSession` / `EncryptedSession` need a live service and
   are deliberately *not* stubbed — a mock would only produce a verdict about the mock.
 

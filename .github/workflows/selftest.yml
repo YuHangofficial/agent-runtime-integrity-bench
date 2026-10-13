@@ -21,11 +21,12 @@ permissions:
 
 jobs:
   selftest:
-    name: harness self-test (stdlib only)
-    runs-on: ubuntu-latest
+    name: harness self-test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python: ["3.10", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
@@ -36,19 +37,28 @@ jobs:
         run: python selftest.py
 
   bench:
-    name: bench against real runtimes
-    runs-on: ubuntu-latest
+    name: bench against real runtimes (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        # The exit-code allow-list and version capture below use Bash syntax.
+        # Windows runners include Git Bash; their default shell is PowerShell.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: install the runtimes under test
-        run: pip install -r requirements-full.txt   # all four backends, incl. SQLAlchemy
+        run: python -m pip install -r requirements-full.txt   # all four backends, incl. SQLAlchemy
       - name: record versions actually measured
         # `|| true`: a no-match grep exits 1 and would fail the step over
         # bookkeeping. The report carries the authoritative versions anyway.
-        run: pip freeze | grep -Ei "^(openai-agents|aiosqlite|sqlalchemy)=" | tee versions.txt || true
+        run: python -m pip freeze | grep -Ei "^(openai-agents|aiosqlite|sqlalchemy)=" | tee versions.txt || true
       - name: run the benchmark
         # 0 = all invariants held, 1 = violations found and reported (expected
         # today). ONLY those two pass. Anything else — 4 (harness error), 2
@@ -67,7 +77,7 @@ jobs:
           esac
       - uses: actions/upload-artifact@v4
         with:
-          name: bench-report-linux-py312
+          name: bench-report-${{ runner.os }}-py312
           path: |
             ci-report.json
             versions.txt
